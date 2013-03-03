@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ### CONSTANTS & SHORTCUTS ###
 
@@ -69,7 +69,7 @@ function pkg_build () {
   tnat="`echo $trch | grep $arch`"
   tany="`echo $trch | grep any`"
 
-  if ! [ -z $tnat -a -z $tany ]; then
+  if ! [ -z "$tnat" -a -z "$tany" ]; then
     cd $repdir/$repnms/build/aur/$1
     [[ -f ../${1}.sh ]] && sh ../${1}.sh
     makepkg -sc --sign --noconfirm; mpec=$?
