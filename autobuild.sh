@@ -24,6 +24,10 @@ rmport=[path]
 # Check for gpg
 # Check for $repdir/$repnms/aur/packages.list
 
+function pkg_ver_comp () {
+  [ ! $(echo -e "$1\n$2" | sort --version-sort | head -1) = "$2" ]
+}
+
 function pkg_ver_loc () {
   lpkgnam=`ls $repdir/$repnms/$arch/${1}-*.pkg.tar.xz 2> /dev/null | head -1 | rev | cut -d/ -f1 | rev`
   lpkgver=`echo ${lpkgnam:\`expr ${#1} + 1\`:\`expr ${#lpkgnam} - ${#1} - 12\`} | rev | cut -d- -f2- | rev`
@@ -95,10 +99,10 @@ function pkg_build () {
 
 function pkg_search () {
   pmsrch=`pacman -Ss ${1} | grep ${1} | grep -v $repnms | cut -f1 -d/`
-  if [ "$1" == "" ]; then
-    echo -e "Inv Pkg${rst}"
+  if [ "$pmsrch" == "" ]; then
+    echo -e "${clr}Inv Pkg${rst}"
   else
-    echo -e "${pmsrch:0:10}${rst}"
+    echo -e "${clr}${pmsrch:0:10}${rst}"
     [[ "$2" != "missing" ]] && pkg_remove $1 $2
   fi
 }
@@ -121,9 +125,12 @@ for pkg in `cat $repdir/$repnms/build/aur/packages.list | sed 's/#.*//g'`; do
         if [ $lv == missing ]; then
          echo -e ${clr}Missing${rst} && pkg_build $pkg $lv $av
         else
-          [[ $lv < $av ]] && echo -e ${clr}Outdated${rst} && pkg_build $pkg $lv $av
-          [[ $lv == $av ]] && echo -e ${clr}Current${rst}
-          [[ $lv > $av ]] && echo -e ${clr}Indated${rst}
+          if [ $lv == $av ]; then
+            echo -e ${clr}Current${rst}
+          else
+            pkg_ver_comp $lv $av && echo -e ${clr}Outdated${rst} && pkg_build $pkg $lv $av
+            pkg_ver_comp $av $lv && echo -e ${clr}Indated${rst}
+          fi
         fi
       fi
     fi
