@@ -137,4 +137,7 @@ for pkg in `cat $repdir/$repnms/build/aur/packages.list | sed 's/#.*//g'`; do
   fi
 done
 
-rsync --progress --del -avze "ssh -p $rmport" /$repdir/$repnms/$arch/ ${rmuser}@${rmhost}:${rmpath}
+# Rsync new packages and sigs first
+rsync --progress -avze "ssh -p $rmport" /$repdir/$repnms/$arch/*.pkg.tar.xz* ${rmuser}@${rmhost}:${rmpath}
+# Rsync the repo db and delete old files
+rsync --progress --delete-after -avze "ssh -p $rmport" /$repdir/$repnms/$arch/ ${rmuser}@${rmhost}:${rmpath}
