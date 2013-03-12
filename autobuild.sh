@@ -12,7 +12,7 @@ arch=`lscpu | grep Architecture | cut -d: -f2 | sed 's/\s*//g'`
 ### CONFIGURATION ###
 
 repdir=[dir]
-repnsm=[name]
+repnms=[name]
 rmuser=[user]
 rmhost=[host]
 rmport=[port]
