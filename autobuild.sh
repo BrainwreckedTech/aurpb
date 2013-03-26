@@ -87,7 +87,7 @@ function pkg_build () {
       fi 
       [[ "$2" != "missing" ]] && pkg_remove $1 $2
       pkg_add $1 $3
-      sudo pacman -Sy; cd $repdir/$repnms/build; rm -r $repdir/$repnms/build/aur/$1
+      sudo pacman -Syu; cd $repdir/$repnms/build; rm -r $repdir/$repnms/build/aur/$1
     else
       echo -e ${clr}Package creation failed!${rst}
       rm -r $repdir/$repnms/build/aur/$1
