@@ -1,14 +1,15 @@
 AUR Builder Script
 ==================
 
-These scripts will build a set of packages from the AUR.  It will check
-to see if you already have the package built.  If so, it will check the
-local version against the version from the AUR.  If not, it will build
-the package.
+These scripts will build a set of packages from the AUR and create a
+repository.  It checks to see if you already have the package built.
+If so, it will check the local version against the version from the AUR.
+If the package is not built locally or is out-of-date compared to the AUR,
+it will build the package and sign it.
 
 LIMITATION: Version numbers can be auto-bumped by PKGBUILD's built-in
 package versioning for code retrieved from git & svn.  This script, at
-this time, only check the version as reported by the AUR.
+this time, only checks the version as reported by the AUR.
 
 Directory Setup
 ---------------
@@ -32,7 +33,9 @@ By default, the script use /srv/repo.
 Chroot Setup
 ------------
 
-The script uses chroots for clean builds.
+The script uses chroots for clean builds and to prevent headaches that may 
+occur from repeatedly installing and removing packages in bulk on your system.
+
 By default, the script uses /srv/build.
 
 You should have one chroot for each $arch.
