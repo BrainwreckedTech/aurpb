@@ -47,11 +47,11 @@ TAB3='tput cub 80; tput cuf 70'
 
 NEWPKS=""
 BADPKS=""
-FLAG_MAKE=true	# Make packages?
-FLAG_LIST=false	# Only list package info?
-FLAG_REPO=false	# Only update the repos?
-FLAG_SIGN=false	# Only sign packages?
-FLAG_URSS=false	# Update the RSS feed?
+FLAG_MAKE=true  # Make packages?
+FLAG_LIST=false # Only list package info?
+FLAG_REPO=false # Only update the repos?
+FLAG_SIGN=false # Only sign packages?
+FLAG_URSS=false # Update the RSS feed?
 
 ### SET VARIABLES BASED ON PARAMETERS ###
 
