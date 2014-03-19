@@ -193,30 +193,36 @@ function pkg_build () {
   tnat="`echo $trch | grep ${4}`"
   tany="`echo $trch | grep any`"
 
-  if ! [ -z "$tnat" -a -z "$tany" ]; then
-    chown -R nobody $REPDIR/$REPNAM/build/aur/${1}
-    cd $REPDIR/$REPNAM/build/aur/${1}
-    [[ -f ../${1}.sh ]] && message 'Executing PKGBUILD customization...' && sh ../${1}.sh
-    makechrootpkg -cur ${CHROOT}/${4}; mpec=$?
-    if [ $mpec == 0 ]; then
-      message 'Package creation succeeded!'
-      if [ -f "`ls $REPDIR/$REPNAM/build/aur/${1}/${1}-*.pkg.tar 2> /dev/null`" ]; then 
-        message 'Package left as tarball.  Manually compressing...'
-        xz $REPDIR/$REPNAM/build/aur/${1}/${1}-*.pkg.tar
-      fi 
-      [[ "${2}" != "missing" ]] && pkg_remove ${1} ${2} ${4}
-      pkg_add ${1} ${4}; sign_pkgs ${4}; repo_build ${4}; system_update ${4};
-      NEWPKS="${NEWPKS}${1} for ${4}"$'\n'
-      cd $REPDIR/$REPNAM/build
-    else
-      message 'Package creation failed!'
-      BADPKS="${BADPKS}${1} for ${4}"$'\n'
-    fi
-    cd $REPDIR/$REPNAM/build/aur
+  if [ -n "$tany" -a "${4}" == "i686" ]; then
+    message 'ANY package detected, will copy x86_64 version.'
+    cp $REPDIR/$REPNAM/x86_64/${1}* $REPDIR/$REPNAM/i686/
+    [[ "${2}" != "missing" ]] && pkg_remove ${1} ${2} ${4}
   else
-    echo -e "\e[1;31mPACKAGE ${1} not intended for ${4}.${RESET}"
+    if [ -n "$tnat" -o -n "$tany" ]; then
+      chown -R nobody $REPDIR/$REPNAM/build/aur/${1}
+      cd $REPDIR/$REPNAM/build/aur/${1}
+      [[ -f ../${1}.sh ]] && message 'Executing PKGBUILD customization...' && sh ../${1}.sh
+      makechrootpkg -cur ${CHROOT}/${4}; mpec=$?
+      if [ $mpec == 0 ]; then
+        message 'Package creation succeeded!'
+        if [ -f "`ls $REPDIR/$REPNAM/build/aur/${1}/${1}-*.pkg.tar 2> /dev/null`" ]; then 
+          message 'Package left as tarball.  Manually compressing...'
+          xz $REPDIR/$REPNAM/build/aur/${1}/${1}-*.pkg.tar
+        fi 
+        [[ "${2}" != "missing" ]] && pkg_remove ${1} ${2} ${4}
+        pkg_add ${1} ${4}; sign_pkgs ${4}; repo_build ${4}; system_update ${4};
+        NEWPKS="${NEWPKS}${1} for ${4}"$'\n'
+        cd $REPDIR/$REPNAM/build
+      else
+        message 'Package creation failed!'
+        BADPKS="${BADPKS}${1} for ${4}"$'\n'
+      fi
+      cd $REPDIR/$REPNAM/build/aur
+    else
+      echo -e "\e[1;31mPACKAGE ${1} not intended for ${4}.${RESET}"
+    fi
+    rm -rf $REPDIR/$REPNAM/build/aur/${1}
   fi
-  rm -rf $REPDIR/$REPNAM/build/aur/${1}
   return $mpec
 }
 
