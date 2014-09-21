@@ -25,6 +25,8 @@ COMBINABLE FLAGS:
 
   -n  <REPO-NAME>  Repository name.  Will be appended to <REPO-DIR>.
 
+  -p               Use plain text instead of colorized text.
+
   -r  <REPO-DIR>   Repository directory.  Default is /srv/repo.
                    Will be appended with <REPO-NAME>.
 
@@ -40,6 +42,7 @@ END_OF_SHOW_HELP
 ### CONSTANTS & SHORTCUTS ###
 
 COLOR='\e[1;35m'
+BEGIN='\e[1;32m'
 RESET='\e[0m'
 TAB1='tput cub 80; tput cuf 30'
 TAB2='tput cub 80; tput cuf 55'
@@ -60,7 +63,7 @@ FLAG_INFO=false # Print a little more info?
 
 OPTIND=1
 
-while getopts "hildsfc:r:n:u:" opt; do
+while getopts "hildsfpc:r:n:u:" opt; do
   case "${opt}" in
     '?')  show_help >&2 && exit 1;;
     h) show_help && exit 0;;
@@ -73,48 +76,80 @@ while getopts "hildsfc:r:n:u:" opt; do
     r) REPDIR=${OPTARG} ;;
     n) REPNAM=${OPTARG} ;;
     u) USRNAM=${OPTARG} ;;
+    p) COLOR='' ; BEGIN='' ; RESET='' ;;
   esac
 done
 
 shift $((OPTIND-1))
-
-[ -z ${CHROOT} ] && CHROOT="/srv/build" && $FLAG_INFO && echo "No chroot directory specified, defaulting to /srv/build" 
-[ -z ${REPDIR} ] && REPDIR="/srv/repo" && $FLAG_INFO && echo "No repo directory specified, defaulting to /srv/repo"
-[ -z ${USRNAM} ] && USRNAM="${USER}" && $FLAG_INFO && echo "No username specified.  Will sign packages as ${USER}"
-[ -z ${REPNAM} ] && echo "No repo name specified" >&2 && show_help >&2 && exit 1
 
 ### CHECK TO SEE IF RUN AS ROOT ###
 
 [[ ${EUID} -eq 0 && ! ${FLAG_MAKE} ]] &&
   echo "This script must be run as root when making packages." >&2 && exit 1
 
-### SANITY CHECKS ###
+### CHECK TO SEE IF WE ARE ALREADY RUNNING ###
 
-for binary in sed tar xz wget arch-nspawn makechrootpkg; do
-  type ${binary} > /dev/null 2>&1 || { echo >&2 "${binary} is not installed."; exit 1; }
-done
-
-if [ ! -f "${REPDIR}/${REPNAM}/build/aur/packages.list" ]; then
-  echo >&2 "${REPDIR}/${REPNAM}/build/aur/packages.list does not exist."
+if [ -f /var/run/lock/makepkgs.lock ]; then
+  echo "Lock file /var/run/lock/makepkgs.lock detected.  Is the script already running?" >&2 
+  [ -t 1 ] && echo "This file may be left behind if the script crashes or is interrupted"
+  [ -t 1 ] && echo "If you are sure that this script is not running please delete the lock file."
   exit 1
+else
+  touch /var/run/lock/makepkgs.lock
 fi
+
+### CREATE DIRECTORIES IF THEY DON'T EXIST ###
 
 mkdir -p ${REPDIR}/${REPNAM}/build/aur
 mkdir -p ${REPDIR}/${REPNAM}/{x86_64,i686}
 
+### TELL USER ABOUT FALLING BACK TO DEFAULTS ###
+
+[ -z ${CHROOT} ] && CHROOT="/srv/build" && $FLAG_INFO && [ -t 1 ] && echo "No chroot directory specified, defaulting to /srv/build" 
+[ -z ${REPDIR} ] && REPDIR="/srv/repo" && $FLAG_INFO && [ -t 1 ] && echo "No repo directory specified, defaulting to /srv/repo"
+[ -z ${USRNAM} ] && USRNAM="${USER}" && $FLAG_INFO && [ -t 1 ] && echo "No username specified.  Will sign packages as ${USER}"
+
+### MAKE SURE WE HAVE THE REQUISITE BINARIES ###
+
+for binary in sed tar xz wget arch-nspawn makechrootpkg; do
+  type ${binary} > /dev/null 2>&1 || { echo "${binary} is not installed." >&2; exit 1; }
+done
+
+### MAKE SURE A REPO NAME WAS SPECIFIED ###
+
+[ -z ${REPNAM} ] && echo "No repo name specified" >&2 && show_help >&2 rm /var/run/lock/makepkgs.lock && exit 1
+
+
+### MAKE SURE WE HAVE A PAKCAKGE LIST ###
+
+if [ ! -f "${REPDIR}/${REPNAM}/build/aur/packages.list" ]; then
+  echo "${REPDIR}/${REPNAM}/build/aur/packages.list does not exist." >&2
+  exit 1
+fi
+
+
+### MAKE SURE THE BUILD CHROOTS EXISTS ###
+
+for arch in x86_64 i686; do
+  if [ ! -d "${CHROOT}/${arch}/root" ]; then
+    echo "${CHROOT}/{$arch}/root does not exist.  Does ${CHROOT} contain chroots for building?" >&2
+    exit 1
+  fi
+done
+
 ### FUNCTIONS ###
 
 function message() {
-  echo -e ${COLOR}${1}${RESET}
+  [ -t 1 ] && echo -e "${COLOR}${1}${RESET}"
 }
 
 function system_update () {
   cmd1="pacman -Sc --noconfirm > /dev/null;"
-  cmd2="pacman -Syu"
-  message 'local: Purging non-installed packages, refreshing repos, and updating system.'
-  eval ${cmd1}
-  eval ${cmd2}
-  message "${1}: Purging non-installed packages, refreshing repos, and updating system."
+  cmd2="pacman -Syu --noconfirm"
+  #message 'local: Purging non-installed packages, refreshing repos, and updating system.'
+  #eval ${cmd1}
+  #eval ${cmd2}
+  [ -t 1 ] && message "${1}: Purging non-installed packages, refreshing repos, and updating system."
   eval arch-nspawn ${CHROOT}/${1}/root "${cmd1}"
   eval arch-nspawn ${CHROOT}/${1}/root "${cmd2}"
 }
@@ -150,7 +185,7 @@ function pkg_get () {
 }
 
 function pkg_remove() {
-  message "Removing ${1}-${2} from ${3}..."
+  [ -t 1 ] && message "Removing ${1}-${2} from ${3}..."
   eval rm -rv "${REPDIR}/${REPNAM}/${3}/${1}-${2}-*.pkg.tar.xz*"
 }
 
@@ -175,7 +210,7 @@ function sign_pkgs() {
   message "Signing packages with missing signatures for ${1} as ${USRNAM}..."
   for file in ${REPDIR}/${REPNAM}/${1}/*.pkg.tar.xz; do
     if [ ! -e ${file}.sig ]; then
-      echo "Signing ${file}..."
+      [ -t 1 ] && echo "Signing ${file}..."
       if [ ${EUID} != `id -u ${USRNAM}` ]; then
         su -c "gpg --detach-sign ${file}" - ${USRNAM}
       else
@@ -223,7 +258,7 @@ function pkg_build () {
       fi
       cd ${REPDIR}/${REPNAM}/build/aur
     else
-      echo -e "\e[1;31mPACKAGE ${1} not intended for ${4}.${RESET}"
+      [ -t 1 ] && echo -e "\e[1;31mPACKAGE ${1} not intended for ${4}.${RESET}"
     fi
     rm -rf ${REPDIR}/${REPNAM}/build/aur/w${1}
   fi
@@ -233,7 +268,7 @@ function pkg_build () {
 function pkg_search () {
   pmsrch=`pacman -Ss ${1} | grep ${1} | grep -v ${REPNAM} | cut -f1 -d/`
   if [ "${pmsrch}" == "" ]; then
-    echo -e "${COLOR}Inv Pkg${RESET}"
+    [ -t 1 ] && echo -e "${COLOR}Inv Pkg${RESET}"
   else
     message "${1} is now in ${pmsrch:0:10}"
     [[ "${2}" != "missing" ]] && pkg_remove ${1} "${2}" "${3}"
@@ -244,10 +279,13 @@ ${FLAG_SIGN} && { sign_pkgs x86_64; sign_pkgs i686; exit 0; }
 ${FLAG_REPO} && { repo_build x86_64; repo_build i686; exit 0; }
 ${FLAG_LIST} || { system_update x86_64 && system_update i686; }
 
-echo -ne "PACKAGE NAME"; eval ${TAB1}
-echo -ne "LCL X86_64 VER"; eval ${TAB2}
-echo -ne "LCL I686 VER"; eval ${TAB3}
-echo -e  "AUR VERSION"
+if [ -t 1 ]; then 
+  echo -e "${BEGIN}*** STARTING WITH REPO ${REPNAM} ***${RESET}\n"
+  echo -ne "PACKAGE NAME"; eval ${TAB1}
+  echo -ne "LCL X86_64 VER"; eval ${TAB2}
+  echo -ne "LCL I686 VER"; eval ${TAB3}
+  echo -e  "AUR VERSION"
+fi
 
 while read line; do
   depupd=0
@@ -262,64 +300,58 @@ while read line; do
       system_update x86_64; system_update i686
       lvx=$(pkg_ver_loc ${pkg} x86_64); lvi=$(pkg_ver_loc ${pkg} i686)
     fi
-    echo -ne "${COLOR}${pkg}${RESET}"; eval $TAB1
-    echo -ne "${COLOR}${lvx}${RESET}"; eval $TAB2
-    echo -ne "${COLOR}${lvi}${RESET}"; eval $TAB3
+    if [ -t 1 ]; then 
+      echo -ne "${COLOR}${pkg}${RESET}"; eval $TAB1
+      echo -ne "${COLOR}${lvx}${RESET}"; eval $TAB2
+      echo -ne "${COLOR}${lvi}${RESET}"; eval $TAB3
+    fi
     av=$(pkg_ver_aur ${pkg})
-    echo -e "${COLOR}${av}${RESET}"
+    [ -t 1 ] && echo -e "${COLOR}${av}${RESET}"
     if [ ${av} == missing ]; then
       pkg_search ${pkg} \* "{x86_64,i686}"
       message "Removing ${1} from the repos..."
       rm -rf "${REPDIR}/${REPNAM}/build/aur/${pkg}" 2> /dev/null
     else
-      if [ ${lvx} == missing ]; then
-        if [ ! ${FLAG_LIST} ]; then
-          pkg_build ${pkg} ${lvx} ${av} x86_64 && [[ $? == 0 ]] && depupd=1
-        else
-          $FLAG_INFO && echo "List mode on...not building missing x86_64 package."
-        fi
-      else 
-        if pkg_ver_comp ${lvx} ${av}; then
-          if [ ! ${FLAG_LIST} ]; then
-            pkg_build ${pkg} ${lvx} ${av} x86_64 && [[ $? == 0 ]] && depupd=1
+      for arch in x86_64 i686; do
+        [ $arch == x86_64 ] && lvl=${lvx} || lvl=${lvi}
+        if [ ${lvl} == missing ]; then
+          if [ ${FLAG_LIST} == false ]; then
+            pkg_build ${pkg} ${lvl} ${av} ${arch} && [[ $? == 0 ]] && depupd=1
           else
-            echo "List mode on...not building out-of-date x_86_64 package."
+            $FLAG_INFO && [ -t 1 ] && echo "List mode on...not building missing ${arch} package."
+          fi
+        else 
+          if pkg_ver_comp ${lvl} ${av}; then
+            if [ ${FLAG_LIST} == false ]; then
+              pkg_build ${pkg} ${lvl} ${av} ${arch} && [[ $? == 0 ]] && depupd=1
+            else
+              [ -t 1 ] && echo "List mode on...not building out-of-date ${arch} package."
+            fi
           fi
         fi
-      fi
-      if [ ${lvi} == missing ]; then
-        if [ ! ${FLAG_LIST} ]; then
-          pkg_build ${pkg} ${lvi} ${av} x86_64 && [[ $? == 0 ]] && depupd=1
-        else
-          $FLAG_INFO && echo "List mode on...not building missing i686 package."
-        fi
-      else
-        if pkg_ver_comp ${lvi} ${av}; then
-          if [ ! ${FLAG_LIST} ]; then 
-            pkg_build ${pkg} ${lvi} ${av} x86_64 && [[ $? == 0 ]] && depupd=1
-          else
-            echo "List mode on...not building out-of-date i686 package."
-          fi
-        fi
-      fi
+      done
     fi
   done
 done < "${REPDIR}/${REPNAM}/build/aur/packages.list"
 
-echo -e "\e[1;32m*** FINISHED WITH REPO ${REPNAM} ***\e[0m"
+[ -t 1 ] && echo -e "\n${BEGIN}*** FINISHED WITH REPO ${REPNAM} ***${RESET}\n"
 
-! ${FLAG_URSS} && exit 0 
+if [ ! ${FLAG_URSS} ]; then
 
-# This section relies on BrainwreckedRSS 
-# Visit rss.bw-tech.net for more information
+  # This section relies on BrainwreckedRSS 
+  # Visit rss.bw-tech.net for more information
 
-cd ${REPDIR}/bwrss
+  cd ${REPDIR}/bwrss
 
-[[ "$NEWPKS" != "" ]] && 
-  NEWPKS=$(echo "$NEWPKS" | sed ':a;N;$!ba;s/\n/\&lt;br\/\&gt; /g') &&
-  php update.php aurpb "New Packages Built" "AURPB Build Script" "${NEWPKS} &lt;br /&gt;Packages are waiting production."
+  [[ "$NEWPKS" != "" ]] && 
+    NEWPKS=$(echo "$NEWPKS" | sed ':a;N;$!ba;s/\n/\&lt;br\/\&gt; /g') &&
+    php update.php aurpb "New Packages Built" "AURPB Build Script" "${NEWPKS} &lt;br /&gt;Packages are waiting production."
 
-[[ "$BADPKS" != "" ]] && 
-  BADPKS=$(echo "$BADPKS" | sed ':a;N;$!ba;s/\n/\&lt;br\/\&gt; /g') &&
-  EXCUSE="Common reasons: Dependencies broken, source dl link broken, AUR maintainer broken." 
-  php update.php aurpb "Failed Packages" "AURPB Build Script" "${BADPKS} &lt;br /&gt;${EXCUSE}"
+  [[ "$BADPKS" != "" ]] && 
+    BADPKS=$(echo "$BADPKS" | sed ':a;N;$!ba;s/\n/\&lt;br\/\&gt; /g') &&
+    EXCUSE="Common reasons: Dependencies broken, source dl link broken, AUR maintainer broken." 
+    php update.php aurpb "Failed Packages" "AURPB Build Script" "${BADPKS} &lt;br /&gt;${EXCUSE}"
+fi
+
+rm /var/run/lock/makepkgs.lock
+exit 0
