@@ -98,11 +98,6 @@ else
   touch /var/run/lock/makepkgs.lock
 fi
 
-### CREATE DIRECTORIES IF THEY DON'T EXIST ###
-
-mkdir -p ${REPDIR}/${REPNAM}/build/aur
-mkdir -p ${REPDIR}/${REPNAM}/{x86_64,i686}
-
 ### TELL USER ABOUT FALLING BACK TO DEFAULTS ###
 
 [ -z ${CHROOT} ] && CHROOT="/srv/build" && $FLAG_INFO && [ -t 1 ] && echo "No chroot directory specified, defaulting to /srv/build" 
@@ -137,6 +132,11 @@ for arch in x86_64 i686; do
   fi
 done
 
+### CREATE DIRECTORIES IF THEY DON'T EXIST ###
+
+mkdir -p ${REPDIR}/${REPNAM}/build/aur
+mkdir -p ${REPDIR}/${REPNAM}/{x86_64,i686}
+
 ### FUNCTIONS ###
 
 function message() {
@@ -146,9 +146,6 @@ function message() {
 function system_update () {
   cmd1="pacman -Sc --noconfirm > /dev/null;"
   cmd2="pacman -Syu --noconfirm"
-  #message 'local: Purging non-installed packages, refreshing repos, and updating system.'
-  #eval ${cmd1}
-  #eval ${cmd2}
   [ -t 1 ] && message "${1}: Purging non-installed packages, refreshing repos, and updating system."
   eval arch-nspawn ${CHROOT}/${1}/root "${cmd1}"
   eval arch-nspawn ${CHROOT}/${1}/root "${cmd2}"
@@ -166,21 +163,14 @@ function pkg_ver_loc () {
 }
 
 function pkg_ver_aur () {
-  wget -q -O ${1}.info "https://aur.archlinux.org/rpc.php?type=info&arg=${1}"
-  sed -i 's/[,{]/\n/g' ${1}.info
-  result=`cat ${1}.info | grep "resultcount" | cut -d\: -f2`
-  [[ ${result} == 0 ]] && pkgver="missing"
-  [[ ${result} != 0 ]] && pkgver=`cat ${1}.info | grep "Version" | cut -d\" -f4`
-  rm ${1}.info
-  echo ${pkgver}
+   result=$(wget -qO - "https://aur.archlinux.org/rpc.php?type=info&arg=${1}" | \
+            sed 's/[,{]/\n/g' | grep "Version" | cut -d\" -f4)
+   [[ -n ${result} ]] && echo ${result} || echo "missing"
 }
 
 function pkg_get () {
-  #message "Retreiving gzipped tarball for ${1}..."
   wget -q https://aur.archlinux.org/packages/${1:0:2}/${1}/${1}.tar.gz
-  #message "Extracting gzipped tarballl for ${1}..."
   tar -zxvf ${1}.tar.gz > /dev/null
-  #message "${COLOR}Removing gzipped tarballl for ${1}..."
   rm ${1}.tar.gz
 }
 
