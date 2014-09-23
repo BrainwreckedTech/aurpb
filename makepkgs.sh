@@ -139,6 +139,21 @@ done
 mkdir -p ${REPDIR}/${REPNAM}/build/aur
 mkdir -p ${REPDIR}/${REPNAM}/{x86_64,i686}
 
+### CHECK TO SEE IF WE HAVE A WORKING INTERNET CONNECTION ###
+
+! host aur.archlinux.org &> /dev/null && \
+  echo "Can't find host info for aur.archlinx.org.  Is your network up?  Is the site down?" && exit 1
+
+### TEST IF AUR IS RESPONDING PROPERLY -- DEPENDS ON testpkg ###
+
+  tstpkg=$(cat ${REPDIR}/testpkg | cut -f1)
+  tstver=$(cat ${REPDIR}/testpkg | cut -f2)
+
+  aurtst=$(wget -qO - "https://aur.archlinux.org/rpc.php?type=info&arg=${tstpkg}" | \
+           sed 's/[,{]/\n/g' | grep "Version" | cut -d\" -f4)
+
+  [[ ${aurtst} != ${tstver} ]] && echo "Unexpected query result from the AUR for the ${tstpkg} package." && exit 1
+
 ### FUNCTIONS ###
 
 function message() {
