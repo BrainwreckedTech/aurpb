@@ -1,7 +1,9 @@
 #!/bin/bash
 
+[[ -z ${PATH} ]] && PATH=/usr/bin
+
 show_help () {
-/usr/bin/cat <<END_OF_SHOW_HELP
+cat <<END_OF_SHOW_HELP
 ${0} <OPTIONS>
 
 FLAGS THAT ONLY MAKE SENSE BY THEMSELVES:
