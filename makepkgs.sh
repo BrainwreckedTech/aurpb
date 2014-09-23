@@ -231,7 +231,7 @@ function pkg_build () {
       chown -R nobody ${REPDIR}/${REPNAM}/build/aur/${1}
       cd ${REPDIR}/${REPNAM}/build/aur/${1}
       [[ -f ../${1}.sh ]] && message 'Executing PKGBUILD customization...' && sh ../${1}.sh
-      makechrootpkg -cur ${CHROOT}/${4}
+      makechrootpkg -cur ${CHROOT}/${4} -l aurpbs
       if [ $? == 0 ]; then
         message 'Package creation succeeded!'
         if [ -f "`ls ${REPDIR}/${REPNAM}/build/aur/${1}/${1}-*.pkg.tar 2> /dev/null`" ]; then 
@@ -345,3 +345,4 @@ fi
 
 rm /var/run/lock/makepkgs.lock
 exit 0
+
