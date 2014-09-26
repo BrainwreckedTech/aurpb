@@ -117,14 +117,6 @@ done
 [ -z ${REPNAM} ] && echo "No repo name specified" >&2 && show_help >&2 rm /var/run/lock/makepkgs.lock && exit 1
 
 
-### MAKE SURE WE HAVE A PAKCAKGE LIST ###
-
-if [ ! -f "${REPDIR}/${REPNAM}/build/aur/packages.list" ]; then
-  echo "${REPDIR}/${REPNAM}/build/aur/packages.list does not exist." >&2
-  exit 1
-fi
-
-
 ### MAKE SURE THE BUILD CHROOTS EXISTS ###
 
 for arch in x86_64 i686; do
@@ -133,11 +125,6 @@ for arch in x86_64 i686; do
     exit 1
   fi
 done
-
-### CREATE DIRECTORIES IF THEY DON'T EXIST ###
-
-mkdir -p ${REPDIR}/${REPNAM}/build/aur
-mkdir -p ${REPDIR}/${REPNAM}/{x86_64,i686}
 
 ### CHECK TO SEE IF WE HAVE A WORKING INTERNET CONNECTION ###
 
@@ -286,60 +273,74 @@ ${FLAG_SIGN} && { sign_pkgs x86_64; sign_pkgs i686; exit 0; }
 ${FLAG_REPO} && { repo_build x86_64; repo_build i686; exit 0; }
 ${FLAG_LIST} || { system_update x86_64 && system_update i686; }
 
-if [ -t 1 ]; then 
-  echo -e "${BEGIN}*** STARTING WITH REPO ${REPNAM} ***${RESET}\n"
-  echo -ne "PACKAGE NAME"; eval ${TAB1}
-  echo -ne "LCL X86_64 VER"; eval ${TAB2}
-  echo -ne "LCL I686 VER"; eval ${TAB3}
-  echo -e  "AUR VERSION"
-fi
+### MAKE SURE WE HAVE A PAKCAKGE LIST ###
 
-while read line; do
-  depupd=0
-  for pkg in ${line}; do
-    [[ "${pkg:0:1}" == "#" ]] && break
-    cd ${REPDIR}/${REPNAM}/build/aur
-    lvx=$(pkg_ver_loc ${pkg} x86_64); lvi=$(pkg_ver_loc ${pkg} i686)
-    if [ ${depupd} == 1 ]; then
-      message "Dependency of ${pkg} updated.  Clearing out for rebuild..."
-      pkg_remove ${pkg} \* "{x86_64,i686}"
-      repo_build x86_64; repo_build i686
-      system_update x86_64; system_update i686
+if [ -f "${REPDIR}/${REPNAM}/build/aur/packages.list" ]; then
+
+  ### CREATE DIRECTORIES IF THEY DON'T EXIST ###
+
+  mkdir -p ${REPDIR}/${REPNAM}/build/aur
+  mkdir -p ${REPDIR}/${REPNAM}/{x86_64,i686}
+
+  if [ -t 1 ]; then 
+    echo -e "${BEGIN}*** STARTING WITH REPO ${REPNAM} ***${RESET}\n"
+    echo -ne "PACKAGE NAME"; eval ${TAB1}
+    echo -ne "LCL X86_64 VER"; eval ${TAB2}
+    echo -ne "LCL I686 VER"; eval ${TAB3}
+    echo -e  "AUR VERSION"
+  fi
+
+  while read line; do
+    depupd=0
+
+    for pkg in ${line}; do
+      [[ "${pkg:0:1}" == "#" ]] && break
+      cd ${REPDIR}/${REPNAM}/build/aur
       lvx=$(pkg_ver_loc ${pkg} x86_64); lvi=$(pkg_ver_loc ${pkg} i686)
-    fi
-    if [ -t 1 ]; then 
-      echo -ne "${COLOR}${pkg}${RESET}"; eval $TAB1
-      echo -ne "${COLOR}${lvx}${RESET}"; eval $TAB2
-      echo -ne "${COLOR}${lvi}${RESET}"; eval $TAB3
-    fi
-    av=$(pkg_ver_aur ${pkg})
-    [ -t 1 ] && echo -e "${COLOR}${av}${RESET}"
-    if [ ${av} == missing ]; then
-      pkg_search ${pkg} \* "{x86_64,i686}"
-      message "Removing ${1} from the repos..."
-      rm -rf "${REPDIR}/${REPNAM}/build/aur/${pkg}" 2> /dev/null
-    else
-      for arch in x86_64 i686; do
-        [ $arch == x86_64 ] && lvl=${lvx} || lvl=${lvi}
-        if [ ${lvl} == missing ]; then
-          if [ ${FLAG_LIST} == false ]; then
-            pkg_build ${pkg} ${lvl} ${av} ${arch} && [[ $? == 0 ]] && depupd=1
-          else
-            $FLAG_INFO && [ -t 1 ] && echo "List mode on...not building missing ${arch} package."
-          fi
-        else 
-          if pkg_ver_comp ${lvl} ${av}; then
+      if [ ${depupd} == 1 ]; then
+        message "Dependency of ${pkg} updated.  Clearing out for rebuild..."
+        pkg_remove ${pkg} \* "{x86_64,i686}"
+        repo_build x86_64; repo_build i686
+        system_update x86_64; system_update i686
+        lvx=$(pkg_ver_loc ${pkg} x86_64); lvi=$(pkg_ver_loc ${pkg} i686)
+      fi
+      if [ -t 1 ]; then 
+        echo -ne "${COLOR}${pkg}${RESET}"; eval $TAB1
+        echo -ne "${COLOR}${lvx}${RESET}"; eval $TAB2
+        echo -ne "${COLOR}${lvi}${RESET}"; eval $TAB3
+      fi
+      av=$(pkg_ver_aur ${pkg})
+      [ -t 1 ] && echo -e "${COLOR}${av}${RESET}"
+      if [ ${av} == missing ]; then
+        pkg_search ${pkg} \* "{x86_64,i686}"
+        message "Removing ${1} from the repos..."
+        rm -rf "${REPDIR}/${REPNAM}/build/aur/${pkg}" 2> /dev/null
+      else
+        for arch in x86_64 i686; do
+          [ $arch == x86_64 ] && lvl=${lvx} || lvl=${lvi}
+          if [ ${lvl} == missing ]; then
             if [ ${FLAG_LIST} == false ]; then
               pkg_build ${pkg} ${lvl} ${av} ${arch} && [[ $? == 0 ]] && depupd=1
             else
-              [ -t 1 ] && echo "List mode on...not building out-of-date ${arch} package."
+              $FLAG_INFO && [ -t 1 ] && echo "List mode on...not building missing ${arch} package."
+            fi
+          else 
+            if pkg_ver_comp ${lvl} ${av}; then
+              if [ ${FLAG_LIST} == false ]; then
+                pkg_build ${pkg} ${lvl} ${av} ${arch} && [[ $? == 0 ]] && depupd=1
+              else
+                [ -t 1 ] && echo "List mode on...not building out-of-date ${arch} package."
+              fi
             fi
           fi
-        fi
-      done
-    fi
-  done
-done < "${REPDIR}/${REPNAM}/build/aur/packages.list"
+        done
+      fi
+    done
+  done < "${REPDIR}/${REPNAM}/build/aur/packages.list"
+else
+  echo "${REPDIR}/${REPNAM}/build/aur/packages.list does not exist." >&2
+  exit 1
+fi
 
 [ -t 1 ] && echo -e "\n${BEGIN}*** FINISHED WITH REPO ${REPNAM} ***${RESET}\n"
 
