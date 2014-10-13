@@ -191,12 +191,17 @@ function pkg_add () {
 }
 
 function repo_build() {
-  message "Updating repo database for ${1}..."
-  rm ${REPDIR}/${REPNAM}/${1}/${REPNAM}.db*
+  rm ${REPDIR}/${REPNAM}/${1}/${REPNAM}.{db,files}*
   if [ ${EUID} == `id -u ${USRNAM}` ]; then
+    message "Updating the repo database for ${REPNAM}/${1}..."
     repo-add -q ${REPDIR}/${REPNAM}/${1}/${REPNAM}.db.tar.xz ${REPDIR}/${REPNAM}/${1}/*.pkg.tar.xz
+    message "Updating the repo filelist for ${REPNAM}/${1}..."
+    repo-add -q -f ${REPDIR}/${REPNAM}/${1}/${REPNAM}.files.tar.xz ${REPDIR}/${REPNAM}/${1}/*.pkg.tar.xz
   else
+    message "Updating the repo database for ${REPNAM}/${1}..."
     su -c "repo-add -q ${REPDIR}/${REPNAM}/${1}/${REPNAM}.db.tar.xz ${REPDIR}/${REPNAM}/${1}/*.pkg.tar.xz" - ${USRNAM}
+    message "Updating the repo filelist for ${REPNAM}/${1}..."
+    su -c "repo-add -q -f ${REPDIR}/${REPNAM}/${1}/${REPNAM}.files.tar.xz ${REPDIR}/${REPNAM}/${1}/*.pkg.tar.xz" - ${USRNAM}
   fi
 }
 
