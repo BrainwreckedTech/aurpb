@@ -160,7 +160,7 @@ function pkg_ver_comp () {
 }
 
 function pkg_ver_loc () {
-  lpkgnam=`ls ${REPDIR}/${REPNAM}/${2}/${1}-[0-9rl]*.pkg.tar.xz 2> /dev/null | head -1 | rev | cut -d/ -f1 | rev`
+  lpkgnam=`ls ${REPDIR}/${REPNAM}/${2}/${1}-[0-9lrv]*.pkg.tar.xz 2> /dev/null | head -1 | rev | cut -d/ -f1 | rev`
   lpkgver=`echo ${lpkgnam:\`expr ${#1} + 1\`:\`expr ${#lpkgnam} - ${#1} - 12\`} | rev | cut -d- -f2- | rev`
   [[ "${lpkgnam}" == "" ]] && lpkgver='missing'
   echo ${lpkgver}
@@ -368,4 +368,3 @@ fi
 
 rm /var/run/lock/makepkgs.lock
 exit 0
-
