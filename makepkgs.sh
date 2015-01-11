@@ -137,7 +137,7 @@ done
   tstver=$(cat ${REPDIR}/testpkg | cut -f2)
 
   aurtst=$(curl -G -s https://aur.archlinux.org/rpc.php --data type=info --data-urlencode arg=${tstpkg} | \
-           sed 's/[,{]/\n/g' | grep "Version" | cut -d\" -f4)
+           sed 's/[,{]/\n/g' | grep "\"Version\"" | cut -d\" -f4)
 
   [[ ${aurtst} != ${tstver} ]] && echo "Unexpected query result from the AUR for the ${tstpkg} package." && exit 1
 
@@ -168,7 +168,7 @@ function pkg_ver_loc () {
 
 function pkg_ver_aur () {
    result=$(curl -G -s https://aur.archlinux.org/rpc.php --data type=info --data-urlencode arg=${1} | \
-            sed 's/[,{]/\n/g' | grep "Version" | cut -d\" -f4)
+            sed 's/[,{]/\n/g' | grep "\"Version\"" | cut -d\" -f4)
    [[ -n ${result} ]] && echo ${result} || echo "missing"
 }
 
