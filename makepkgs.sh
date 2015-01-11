@@ -108,7 +108,7 @@ fi
 
 ### MAKE SURE WE HAVE THE REQUISITE BINARIES ###
 
-for binary in sed tar xz wget arch-nspawn makechrootpkg; do
+for binary in sed tar xz curl wget arch-nspawn makechrootpkg; do
   type ${binary} > /dev/null 2>&1 || { echo "${binary} is not installed." >&2; exit 1; }
 done
 
@@ -136,7 +136,7 @@ done
   tstpkg=$(cat ${REPDIR}/testpkg | cut -f1)
   tstver=$(cat ${REPDIR}/testpkg | cut -f2)
 
-  aurtst=$(wget -qO - "https://aur.archlinux.org/rpc.php?type=info&arg=${tstpkg}" | \
+  aurtst=$(curl -G -s https://aur.archlinux.org/rpc.php --data type=info --data-urlencode arg=${tstpkg} | \
            sed 's/[,{]/\n/g' | grep "Version" | cut -d\" -f4)
 
   [[ ${aurtst} != ${tstver} ]] && echo "Unexpected query result from the AUR for the ${tstpkg} package." && exit 1
@@ -167,7 +167,7 @@ function pkg_ver_loc () {
 }
 
 function pkg_ver_aur () {
-   result=$(wget -qO - "https://aur.archlinux.org/rpc.php?type=info&arg=${1}" | \
+   result=$(curl -G -s https://aur.archlinux.org/rpc.php --data type=info --data-urlencode arg=${1} | \
             sed 's/[,{]/\n/g' | grep "Version" | cut -d\" -f4)
    [[ -n ${result} ]] && echo ${result} || echo "missing"
 }
