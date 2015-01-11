@@ -108,7 +108,7 @@ fi
 
 ### MAKE SURE WE HAVE THE REQUISITE BINARIES ###
 
-for binary in sed tar xz curl wget arch-nspawn makechrootpkg; do
+for binary in sed tar xz host curl wget arch-nspawn makechrootpkg; do
   type ${binary} > /dev/null 2>&1 || { echo "${binary} is not installed." >&2; exit 1; }
 done
 
