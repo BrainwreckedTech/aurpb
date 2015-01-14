@@ -108,7 +108,7 @@ fi
 
 ### MAKE SURE WE HAVE THE REQUISITE BINARIES ###
 
-for binary in sed tar xz host curl wget arch-nspawn makechrootpkg; do
+for binary in sed tar xz host curl arch-nspawn makechrootpkg; do
   type ${binary} > /dev/null 2>&1 || { echo "${binary} is not installed." >&2; exit 1; }
 done
 
@@ -173,7 +173,7 @@ function pkg_ver_aur () {
 }
 
 function pkg_get () {
-  wget -q https://aur.archlinux.org/packages/${1:0:2}/${1}/${1}.tar.gz
+  curl -s -o ${1}.tar.gz https://aur.archlinux.org/packages/${1:0:2}/${1}/${1}.tar.gz
   tar -zxvf ${1}.tar.gz > /dev/null
   rm ${1}.tar.gz
 }
